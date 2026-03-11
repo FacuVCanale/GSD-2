@@ -37,7 +37,7 @@ async function promptMasked(label: string, hint: string): Promise<string> {
           process.stdin.setRawMode(false)
           process.stdout.write('\n')
           process.exit(0)
-        } else if (ch === '\u007f') {
+        } else if (ch === '\u007f' || ch === '\b') {
           if (value.length > 0) {
             value = value.slice(0, -1)
           }

@@ -17,28 +17,28 @@ await runWizardIfNeeded(authStorage)
 const modelRegistry = new ModelRegistry(authStorage)
 const settingsManager = SettingsManager.create(agentDir)
 
-// Auto-select a default model if none is configured, or if the configured
-// model no longer exists (e.g. stale settings referencing a retired model).
+// Always ensure defaults: anthropic/claude-sonnet-4-6, thinking off.
+// Validates on every startup — catches stale settings from prior installs
+// (e.g. grok-2 which no longer exists) and fresh installs with no settings.
 const configuredProvider = settingsManager.getDefaultProvider()
 const configuredModel = settingsManager.getDefaultModel()
-const availableModels = modelRegistry.getAvailable()
+const allModels = modelRegistry.getAll()
 const configuredExists = configuredProvider && configuredModel &&
-  availableModels.some((m) => m.provider === configuredProvider && m.id === configuredModel)
+  allModels.some((m) => m.provider === configuredProvider && m.id === configuredModel)
 
 if (!configuredModel || !configuredExists) {
-  if (availableModels.length > 0) {
-    // Preferred default: anthropic/claude-sonnet-4-6
-    const preferred =
-      availableModels.find((m) => m.provider === 'anthropic' && m.id === 'claude-sonnet-4-6') ||
-      availableModels.find((m) => m.provider === 'anthropic' && m.id.includes('sonnet')) ||
-      availableModels.find((m) => m.provider === 'anthropic') ||
-      availableModels[0]
+  // Preferred default: anthropic/claude-sonnet-4-6
+  const preferred =
+    allModels.find((m) => m.provider === 'anthropic' && m.id === 'claude-sonnet-4-6') ||
+    allModels.find((m) => m.provider === 'anthropic' && m.id.includes('sonnet')) ||
+    allModels.find((m) => m.provider === 'anthropic')
+  if (preferred) {
     settingsManager.setDefaultModelAndProvider(preferred.provider, preferred.id)
   }
 }
 
-// Default thinking level: off
-if (!settingsManager.getDefaultThinkingLevel()) {
+// Default thinking level: off (always reset if not explicitly set)
+if (settingsManager.getDefaultThinkingLevel() !== 'off' && !configuredExists) {
   settingsManager.setDefaultThinkingLevel('off')
 }
 

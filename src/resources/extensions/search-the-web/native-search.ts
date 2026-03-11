@@ -111,9 +111,21 @@ export function registerNativeSearchHooks(pi: NativeSearchPI): { getIsAnthropic:
 
     if (!Array.isArray(payload.tools)) payload.tools = [];
 
+    let tools = payload.tools as Array<Record<string, unknown>>;
+
     // Don't double-inject if already present
-    const tools = payload.tools as Array<Record<string, unknown>>;
     if (tools.some((t) => t.type === "web_search_20250305")) return;
+
+    // When no Brave key, remove Brave-based search tool definitions from the
+    // payload so Claude doesn't see (and try to call) broken tools.
+    // This is more reliable than setActiveTools since model_select may not fire.
+    const hasBrave = !!process.env.BRAVE_API_KEY;
+    if (!hasBrave) {
+      tools = tools.filter(
+        (t) => !BRAVE_TOOL_NAMES.includes(t.name as string)
+      );
+      payload.tools = tools;
+    }
 
     tools.push({
       type: "web_search_20250305",

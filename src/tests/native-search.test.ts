@@ -331,6 +331,76 @@ test("BRAVE_TOOL_NAMES contains expected tool names", () => {
   assert.deepEqual(BRAVE_TOOL_NAMES, ["search-the-web", "search_and_read"]);
 });
 
+test("before_provider_request removes Brave tools from payload when no BRAVE_API_KEY", async () => {
+  const originalKey = process.env.BRAVE_API_KEY;
+  delete process.env.BRAVE_API_KEY;
+
+  try {
+    const pi = createMockPI();
+    registerNativeSearchHooks(pi);
+
+    const payload: Record<string, unknown> = {
+      model: "claude-sonnet-4-6-20250514",
+      tools: [
+        { name: "bash", type: "function" },
+        { name: "search-the-web", type: "function" },
+        { name: "search_and_read", type: "function" },
+        { name: "fetch_page", type: "function" },
+      ],
+    };
+
+    const result = await pi.fire("before_provider_request", {
+      type: "before_provider_request",
+      payload,
+    });
+
+    const tools = ((result as any)?.tools ?? payload.tools) as any[];
+    const names = tools.map((t: any) => t.name);
+
+    assert.ok(!names.includes("search-the-web"), "search-the-web should be removed from payload");
+    assert.ok(!names.includes("search_and_read"), "search_and_read should be removed from payload");
+    assert.ok(names.includes("bash"), "bash should remain");
+    assert.ok(names.includes("fetch_page"), "fetch_page should remain");
+    assert.ok(names.includes("web_search"), "native web_search should be injected");
+  } finally {
+    if (originalKey) process.env.BRAVE_API_KEY = originalKey;
+    else delete process.env.BRAVE_API_KEY;
+  }
+});
+
+test("before_provider_request keeps Brave tools in payload when BRAVE_API_KEY set", async () => {
+  const originalKey = process.env.BRAVE_API_KEY;
+  process.env.BRAVE_API_KEY = "test-key";
+
+  try {
+    const pi = createMockPI();
+    registerNativeSearchHooks(pi);
+
+    const payload: Record<string, unknown> = {
+      model: "claude-sonnet-4-6-20250514",
+      tools: [
+        { name: "search-the-web", type: "function" },
+        { name: "search_and_read", type: "function" },
+      ],
+    };
+
+    const result = await pi.fire("before_provider_request", {
+      type: "before_provider_request",
+      payload,
+    });
+
+    const tools = ((result as any)?.tools ?? payload.tools) as any[];
+    const names = tools.map((t: any) => t.name);
+
+    assert.ok(names.includes("search-the-web"), "search-the-web should remain with Brave key");
+    assert.ok(names.includes("search_and_read"), "search_and_read should remain with Brave key");
+    assert.ok(names.includes("web_search"), "native web_search should also be injected");
+  } finally {
+    if (originalKey) process.env.BRAVE_API_KEY = originalKey;
+    else delete process.env.BRAVE_API_KEY;
+  }
+});
+
 // ─── stripThinkingFromHistory tests ─────────────────────────────────────────
 
 test("stripThinkingFromHistory removes thinking from earlier assistant messages", () => {

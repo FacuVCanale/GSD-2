@@ -25,12 +25,12 @@ const projectRoot = join(fileURLToPath(import.meta.url), "..", "..", "..");
 // ═══════════════════════════════════════════════════════════════════════════
 
 test("app-paths resolve to ~/.gsd/", async () => {
-  const { appRoot, agentDir, sessionsDir, authFilePath } = await import("../app-paths.ts");
+  const { appRoot, agentDir, legacySessionsDir, authFilePath } = await import("../app-paths.ts");
   const home = process.env.HOME!;
 
   assert.equal(appRoot, join(home, ".gsd"), "appRoot is ~/.gsd/");
   assert.equal(agentDir, join(home, ".gsd", "agent"), "agentDir is ~/.gsd/agent/");
-  assert.equal(sessionsDir, join(home, ".gsd", "sessions"), "sessionsDir is ~/.gsd/sessions/");
+  assert.equal(legacySessionsDir, join(home, ".gsd", "sessions"), "legacySessionsDir is ~/.gsd/sessions/");
   assert.equal(authFilePath, join(home, ".gsd", "agent", "auth.json"), "authFilePath is ~/.gsd/agent/auth.json");
 });
 

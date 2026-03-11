@@ -9,13 +9,14 @@ import {
   runPrintMode,
   runRpcMode,
 } from '@mariozechner/pi-coding-agent'
-import { existsSync, readdirSync, renameSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { agentDir, sessionsDir, authFilePath } from './app-paths.js'
+import { agentDir, authFilePath } from './app-paths.js'
 import { initResources } from './resource-loader.js'
 import { ensureManagedTools } from './tool-bootstrap.js'
 import { loadStoredEnvKeys } from './wizard.js'
 import { shouldRunOnboarding, runOnboarding } from './onboarding.js'
+import { migrateLegacySessions } from './session-migration.js'
 
 // ---------------------------------------------------------------------------
 // Minimal CLI arg parser — detects print/subagent mode flags
@@ -208,36 +209,16 @@ if (isPrintMode) {
 // Interactive mode — normal TTY session
 // ---------------------------------------------------------------------------
 
-// Per-directory session storage — same encoding as the upstream SDK so that
-// /resume only shows sessions from the current working directory.
-const cwd = process.cwd()
-const safePath = `--${cwd.replace(/^[/\\]/, '').replace(/[/\\:]/g, '-')}--`
-const projectSessionsDir = join(sessionsDir, safePath)
+// Migrate legacy sessions from ~/.gsd/sessions/ to per-cwd directories.
+// Previous versions stored all sessions in a single flat directory, which broke
+// /resume's "All" scope (SessionManager.listAll() expects per-cwd subdirectories).
+migrateLegacySessions()
 
-// Migrate legacy flat sessions: before per-directory scoping, all .jsonl session
-// files lived directly in ~/.gsd/sessions/. Move them into the correct per-cwd
-// subdirectory so /resume can find them.
-if (existsSync(sessionsDir)) {
-  try {
-    const entries = readdirSync(sessionsDir)
-    const flatJsonl = entries.filter(f => f.endsWith('.jsonl'))
-    if (flatJsonl.length > 0) {
-      const { mkdirSync } = await import('node:fs')
-      mkdirSync(projectSessionsDir, { recursive: true })
-      for (const file of flatJsonl) {
-        const src = join(sessionsDir, file)
-        const dst = join(projectSessionsDir, file)
-        if (!existsSync(dst)) {
-          renameSync(src, dst)
-        }
-      }
-    }
-  } catch {
-    // Non-fatal — don't block startup if migration fails
-  }
-}
-
-const sessionManager = SessionManager.create(cwd, projectSessionsDir)
+// Don't pass a custom sessionsDir — let Pi use its default per-cwd session directory
+// structure under ~/.gsd/agent/sessions/<encoded-cwd>/. This ensures both
+// SessionManager.list() ("Current Folder" scope) and SessionManager.listAll()
+// ("All" scope) work correctly in /resume.
+const sessionManager = SessionManager.create(process.cwd())
 
 initResources(agentDir)
 const resourceLoader = new DefaultResourceLoader({ agentDir })

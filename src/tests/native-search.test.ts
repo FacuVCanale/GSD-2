@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   registerNativeSearchHooks,
+  stripThinkingFromHistory,
   BRAVE_TOOL_NAMES,
   type NativeSearchPI,
 } from "../resources/extensions/search-the-web/native-search.ts";
@@ -241,29 +242,28 @@ test("model_select re-enables Brave tools when switching away from Anthropic", a
   }
 });
 
-test("session_start shows 'Native search' when Anthropic provider", async () => {
+test("model_select shows 'Native Anthropic web search active' for Anthropic provider", async () => {
   const pi = createMockPI();
   registerNativeSearchHooks(pi);
 
-  // Simulate an Anthropic request so isAnthropicProvider becomes true
-  await pi.fire("before_provider_request", {
-    type: "before_provider_request",
-    payload: { model: "claude-sonnet-4-6-20250514", tools: [] },
+  await pi.fire("model_select", {
+    type: "model_select",
+    model: { provider: "anthropic", name: "claude-sonnet-4-6" },
+    previousModel: undefined,
+    source: "set",
   });
 
-  await pi.fire("session_start", { type: "session_start" });
-
   const infoNotif = pi.notifications.find(
-    (n) => n.level === "info" && n.message.includes("v4")
+    (n) => n.level === "info" && n.message.includes("Native")
   );
-  assert.ok(infoNotif, "Should have v4 info notification");
+  assert.ok(infoNotif, "Should notify about native search on Anthropic model_select");
   assert.ok(
-    infoNotif!.message.includes("Native search"),
-    `Should include 'Native search' — got: ${infoNotif!.message}`
+    infoNotif!.message.includes("Native Anthropic web search active"),
+    `Should say 'Native Anthropic web search active' — got: ${infoNotif!.message}`
   );
 });
 
-test("session_start shows warning when no Anthropic and no Brave key", async () => {
+test("model_select shows warning for non-Anthropic without Brave key", async () => {
   const originalKey = process.env.BRAVE_API_KEY;
   delete process.env.BRAVE_API_KEY;
 
@@ -271,11 +271,15 @@ test("session_start shows warning when no Anthropic and no Brave key", async () 
     const pi = createMockPI();
     registerNativeSearchHooks(pi);
 
-    // Don't fire any model/request events — isAnthropicProvider stays false
-    await pi.fire("session_start", { type: "session_start" });
+    await pi.fire("model_select", {
+      type: "model_select",
+      model: { provider: "openai", name: "gpt-4o" },
+      previousModel: undefined,
+      source: "set",
+    });
 
     const warning = pi.notifications.find((n) => n.level === "warning");
-    assert.ok(warning, "Should show warning when no Anthropic and no Brave key");
+    assert.ok(warning, "Should show warning for non-Anthropic without Brave key");
     assert.ok(
       warning!.message.includes("Anthropic"),
       `Warning should mention Anthropic — got: ${warning!.message}`
@@ -286,7 +290,23 @@ test("session_start shows warning when no Anthropic and no Brave key", async () 
   }
 });
 
-test("session_start does NOT show warning when Brave key present", async () => {
+test("session_start shows v4 loaded message", async () => {
+  const pi = createMockPI();
+  registerNativeSearchHooks(pi);
+
+  await pi.fire("session_start", { type: "session_start" });
+
+  const infoNotif = pi.notifications.find(
+    (n) => n.level === "info" && n.message.includes("v4")
+  );
+  assert.ok(infoNotif, "Should have v4 info notification");
+  assert.ok(
+    infoNotif!.message.startsWith("Web search v4 loaded"),
+    `Should start with 'Web search v4 loaded' — got: ${infoNotif!.message}`
+  );
+});
+
+test("session_start shows Brave status when key present", async () => {
   const originalKey = process.env.BRAVE_API_KEY;
   process.env.BRAVE_API_KEY = "test-key";
 
@@ -296,11 +316,11 @@ test("session_start does NOT show warning when Brave key present", async () => {
 
     await pi.fire("session_start", { type: "session_start" });
 
-    const warning = pi.notifications.find((n) => n.level === "warning");
-    assert.equal(warning, undefined, "Should NOT show warning when Brave key is present");
-
     const info = pi.notifications.find((n) => n.level === "info");
     assert.ok(info!.message.includes("Brave"), "Should mention Brave in status");
+
+    const warning = pi.notifications.find((n) => n.level === "warning");
+    assert.equal(warning, undefined, "Should NOT show warning when Brave key is present");
   } finally {
     if (originalKey) process.env.BRAVE_API_KEY = originalKey;
     else delete process.env.BRAVE_API_KEY;
@@ -309,4 +329,118 @@ test("session_start does NOT show warning when Brave key present", async () => {
 
 test("BRAVE_TOOL_NAMES contains expected tool names", () => {
   assert.deepEqual(BRAVE_TOOL_NAMES, ["search-the-web", "search_and_read"]);
+});
+
+// ─── stripThinkingFromHistory tests ─────────────────────────────────────────
+
+test("stripThinkingFromHistory removes thinking from earlier assistant messages", () => {
+  const messages: any[] = [
+    { role: "user", content: "hello" },
+    {
+      role: "assistant",
+      content: [
+        { type: "thinking", thinking: "hmm", signature: "sig1" },
+        { type: "text", text: "Hi there" },
+      ],
+    },
+    { role: "user", content: "search something" },
+  ];
+
+  stripThinkingFromHistory(messages);
+
+  // First assistant message (not latest) — thinking stripped
+  assert.equal(messages[1].content.length, 1);
+  assert.equal(messages[1].content[0].type, "text");
+});
+
+test("stripThinkingFromHistory strips thinking from all assistant messages", () => {
+  const messages: any[] = [
+    { role: "user", content: "hello" },
+    {
+      role: "assistant",
+      content: [
+        { type: "thinking", thinking: "first thought", signature: "sig1" },
+        { type: "text", text: "response 1" },
+      ],
+    },
+    { role: "user", content: "follow up" },
+    {
+      role: "assistant",
+      content: [
+        { type: "thinking", thinking: "second thought", signature: "sig2" },
+        { type: "text", text: "response 2" },
+      ],
+    },
+    { role: "user", content: "another question" },
+  ];
+
+  stripThinkingFromHistory(messages);
+
+  // Both assistant messages — thinking stripped
+  assert.equal(messages[1].content.length, 1);
+  assert.equal(messages[1].content[0].type, "text");
+
+  assert.equal(messages[3].content.length, 1);
+  assert.equal(messages[3].content[0].type, "text");
+});
+
+test("stripThinkingFromHistory removes redacted_thinking too", () => {
+  const messages: any[] = [
+    { role: "user", content: "hello" },
+    {
+      role: "assistant",
+      content: [
+        { type: "redacted_thinking", data: "opaque" },
+        { type: "text", text: "response" },
+      ],
+    },
+    { role: "user", content: "next" },
+  ];
+
+  stripThinkingFromHistory(messages);
+
+  assert.equal(messages[1].content.length, 1);
+  assert.equal(messages[1].content[0].type, "text");
+});
+
+test("stripThinkingFromHistory strips even single assistant message", () => {
+  const messages: any[] = [
+    { role: "user", content: "hello" },
+    {
+      role: "assistant",
+      content: [
+        { type: "thinking", thinking: "thought", signature: "sig" },
+        { type: "text", text: "response" },
+      ],
+    },
+    { role: "user", content: "follow up" },
+  ];
+
+  stripThinkingFromHistory(messages);
+
+  // Thinking stripped — all assistant messages are from stored history
+  assert.equal(messages[1].content.length, 1);
+  assert.equal(messages[1].content[0].type, "text");
+});
+
+test("stripThinkingFromHistory handles no assistant messages", () => {
+  const messages: any[] = [
+    { role: "user", content: "hello" },
+  ];
+
+  // Should not throw
+  stripThinkingFromHistory(messages);
+  assert.equal(messages.length, 1);
+});
+
+test("stripThinkingFromHistory handles string content (no array)", () => {
+  const messages: any[] = [
+    { role: "user", content: "hello" },
+    { role: "assistant", content: "just a string" },
+    { role: "user", content: "next" },
+  ];
+
+  // Should not throw — string content is skipped
+  stripThinkingFromHistory(messages);
+  assert.equal(messages[1].content, "just a string");
 });

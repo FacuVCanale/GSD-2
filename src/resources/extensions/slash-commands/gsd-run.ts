@@ -6,7 +6,7 @@ export default function gsdRun(pi: ExtensionAPI) {
   pi.registerCommand("gsd-run", {
     description: "Read GSD-WORKFLOW.md and execute — lightweight protocol-driven GSD",
     async handler(args: string, ctx: ExtensionCommandContext) {
-      const workflowPath = join(process.env.HOME ?? "~", ".pi", "GSD-WORKFLOW.md");
+      const workflowPath = join(process.env.HOME ?? "~", ".gsd", "GSD-WORKFLOW.md");
 
       let workflow: string;
       try {

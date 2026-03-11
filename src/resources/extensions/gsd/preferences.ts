@@ -112,7 +112,7 @@ export interface SkillResolutionReport {
 function getSkillSearchDirs(cwd: string): Array<{ dir: string; method: SkillResolution["method"] }> {
   return [
     { dir: join(getAgentDir(), "skills"), method: "user-skill" },
-    { dir: join(cwd, ".pi", "agent", "skills"), method: "project-skill" },
+    { dir: join(cwd, ".gsd", "agent", "skills"), method: "project-skill" },
   ];
 }
 

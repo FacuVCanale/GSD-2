@@ -31,6 +31,10 @@ export interface AutoSupervisorConfig {
   hard_timeout_minutes?: number;
 }
 
+export interface BrowserConfig {
+  executable_path?: string;
+}
+
 export interface GSDPreferences {
   version?: number;
   always_use_skills?: string[];
@@ -41,6 +45,7 @@ export interface GSDPreferences {
   models?: GSDModelConfig;
   skill_discovery?: SkillDiscoveryMode;
   auto_supervisor?: AutoSupervisorConfig;
+  browser?: BrowserConfig;
   uat_dispatch?: boolean;
   budget_ceiling?: number;
 }
@@ -482,6 +487,18 @@ export function resolveAutoSupervisorConfig(): AutoSupervisorConfig {
   };
 }
 
+/**
+ * Resolve the browser executable path from preferences or environment variable.
+ * Priority: GSD_BROWSER_PATH env var > preferences browser.executable_path > undefined (bundled Chromium).
+ */
+export function resolveBrowserExecutablePath(): string | undefined {
+  const envPath = process.env.GSD_BROWSER_PATH;
+  if (envPath) return envPath;
+
+  const prefs = loadEffectiveGSDPreferences();
+  return prefs?.preferences.browser?.executable_path ?? undefined;
+}
+
 function mergePreferences(base: GSDPreferences, override: GSDPreferences): GSDPreferences {
   return {
     version: override.version ?? base.version,
@@ -493,6 +510,7 @@ function mergePreferences(base: GSDPreferences, override: GSDPreferences): GSDPr
     models: { ...(base.models ?? {}), ...(override.models ?? {}) },
     skill_discovery: override.skill_discovery ?? base.skill_discovery,
     auto_supervisor: { ...(base.auto_supervisor ?? {}), ...(override.auto_supervisor ?? {}) },
+    browser: { ...(base.browser ?? {}), ...(override.browser ?? {}) },
     uat_dispatch: override.uat_dispatch ?? base.uat_dispatch,
     budget_ceiling: override.budget_ceiling ?? base.budget_ceiling,
   };

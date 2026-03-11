@@ -16,8 +16,16 @@ export interface LatestPromptSummary {
 export function getLatestPromptSummary(): LatestPromptSummary | null {
   const runtimeDir = join(homedir(), ".gsd", "runtime", "remote-questions");
   if (!existsSync(runtimeDir)) return null;
-  const files = readdirSync(runtimeDir).filter((f) => f.endsWith(".json")).sort().reverse();
+  const files = readdirSync(runtimeDir).filter((f) => f.endsWith(".json"));
   if (files.length === 0) return null;
-  const record = readPromptRecord(files[0].replace(/\.json$/, ""));
-  return record ? { id: record.id, status: record.status, updatedAt: record.updatedAt } : null;
+
+  let latest: LatestPromptSummary | null = null;
+  for (const file of files) {
+    const record = readPromptRecord(file.replace(/\.json$/, ""));
+    if (!record) continue;
+    if (!latest || record.updatedAt > latest.updatedAt) {
+      latest = { id: record.id, status: record.status, updatedAt: record.updatedAt };
+    }
+  }
+  return latest;
 }

@@ -6,12 +6,25 @@ import { tmpdir } from "node:os";
 import { createPromptRecord, writePromptRecord } from "../../remote-questions/store.ts";
 import { getLatestPromptSummary } from "../../remote-questions/status.ts";
 
-test("getLatestPromptSummary returns latest stored prompt", async () => {
-  const home = process.env.HOME!;
-  const tempHome = join(tmpdir(), `gsd-remote-status-${Date.now()}`);
-  mkdirSync(join(tempHome, ".gsd", "runtime", "remote-questions"), { recursive: true });
-  process.env.HOME = tempHome;
+function withTempHome(fn: (tempHome: string) => void | Promise<void>) {
+  return async () => {
+    const savedHome = process.env.HOME;
+    const savedUserProfile = process.env.USERPROFILE;
+    const tempHome = join(tmpdir(), `gsd-remote-status-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    mkdirSync(join(tempHome, ".gsd", "runtime", "remote-questions"), { recursive: true });
+    process.env.HOME = tempHome;
+    process.env.USERPROFILE = tempHome;
+    try {
+      await fn(tempHome);
+    } finally {
+      process.env.HOME = savedHome;
+      process.env.USERPROFILE = savedUserProfile;
+      rmSync(tempHome, { recursive: true, force: true });
+    }
+  };
+}
 
+test("getLatestPromptSummary returns latest stored prompt", withTempHome(() => {
   const recordA = createPromptRecord({
     id: "a-prompt",
     channel: "slack",
@@ -38,7 +51,49 @@ test("getLatestPromptSummary returns latest stored prompt", async () => {
   const latest = getLatestPromptSummary();
   assert.equal(latest?.id, "z-prompt");
   assert.equal(latest?.status, "answered");
+}));
 
-  process.env.HOME = home;
-  rmSync(tempHome, { recursive: true, force: true });
-});
+test("getLatestPromptSummary sorts by updatedAt, not filename", withTempHome(() => {
+  // Record with alphabetically-LAST id but OLDEST timestamp
+  const old = createPromptRecord({
+    id: "zzz-oldest",
+    channel: "slack",
+    createdAt: 1000,
+    timeoutAt: 9999,
+    pollIntervalMs: 5000,
+    questions: [],
+  });
+  old.updatedAt = 1000;
+  writePromptRecord(old);
+
+  // Record with alphabetically-FIRST id but NEWEST timestamp
+  const newest = createPromptRecord({
+    id: "aaa-newest",
+    channel: "discord",
+    createdAt: 3000,
+    timeoutAt: 9999,
+    pollIntervalMs: 5000,
+    questions: [],
+  });
+  newest.updatedAt = 3000;
+  newest.status = "answered";
+  writePromptRecord(newest);
+
+  // Record in between
+  const middle = createPromptRecord({
+    id: "mmm-middle",
+    channel: "slack",
+    createdAt: 2000,
+    timeoutAt: 9999,
+    pollIntervalMs: 5000,
+    questions: [],
+  });
+  middle.updatedAt = 2000;
+  writePromptRecord(middle);
+
+  const latest = getLatestPromptSummary();
+  // Should return "aaa-newest" (updatedAt=3000), NOT "zzz-oldest" (alphabetically last)
+  assert.equal(latest?.id, "aaa-newest", "should pick the most recently updated prompt, not the alphabetically last filename");
+  assert.equal(latest?.status, "answered");
+  assert.equal(latest?.updatedAt, 3000);
+}));

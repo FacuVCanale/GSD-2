@@ -73,7 +73,7 @@ This milestone is complete only when all are true:
 - [x] **S05: Intent-ranked retrieval and semantic actions** `risk:medium` `depends:[S01]`
   > After this: browser_find_best returns scored candidates for intents like "submit form", "close dialog", "primary CTA"; browser_act executes common micro-tasks in one call — verified by running both tools against real pages.
 
-- [ ] **S06: Test coverage** `risk:low` `depends:[S01,S02,S03,S04,S05]`
+- [x] **S06: Test coverage** `risk:low` `depends:[S01,S02,S03,S04,S05]`
   > After this: test suite covers shared browser-side utilities, settle logic, screenshot resizing, form analysis heuristics, intent scoring, and semantic action resolution — verified by test runner passing.
 
 ## Boundary Map

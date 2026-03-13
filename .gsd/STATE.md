@@ -1,8 +1,8 @@
 # GSD State
 
 **Active Milestone:** M002 — Browser Tools Performance & Intelligence
-**Active Slice:** S06 — Test coverage
-**Phase:** planning
+**Active Slice:** None
+**Phase:** completing-milestone
 **Requirements Status:** 7 active · 15 validated · 3 deferred · 3 out of scope
 
 ## Milestone Registry
@@ -16,4 +16,4 @@
 - None
 
 ## Next Action
-Plan slice S06 (Test coverage).
+All slices complete in M002. Write milestone summary.

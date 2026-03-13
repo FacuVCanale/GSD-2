@@ -72,13 +72,13 @@ This file is the explicit capability and coverage contract for the project.
 
 ### R026 — Test coverage for new and refactored code
 - Class: quality-attribute
-- Status: active
+- Status: validated
 - Description: Test suite covers shared browser-side utilities, settle logic, screenshot resizing, form tools, and intent ranking. Tests verify correctness and guard against regressions.
 - Why it matters: A 5000-line file with zero tests is fragile. The refactoring and new features need regression protection.
 - Source: user
 - Primary owning slice: M002/S06
 - Supporting slices: all M002 slices
-- Validation: unmapped
+- Validation: 108 tests (63 unit + 45 integration) passing via `npm run test:browser-tools`. Unit tests cover pure functions, state accessors, EVALUATE_HELPERS_SOURCE validity, constrainScreenshot with sharp. Integration tests cover window.__pi utilities, intent scoring differentiation, and form label resolution — all via Playwright against real DOM.
 - Notes: Test what's unit-testable without a running browser (heuristics, scoring, utility functions). Integration tests with Playwright for tools that need a page.
 
 ## Validated
@@ -347,14 +347,14 @@ This file is the explicit capability and coverage contract for the project.
 | R023 | core-capability | validated | M002/S04 | M002/S01 | 5-strategy field resolution, type-aware fill, verified end-to-end with 10 fields |
 | R024 | core-capability | validated | M002/S05 | M002/S01 | 8-intent scoring, Playwright tests, differentiated rankings, build passes |
 | R025 | core-capability | validated | M002/S05 | M002/S04 | top candidate execution via Playwright locator, settle + diff, graceful error, build passes |
-| R026 | quality-attribute | active | M002/S06 | all M002 | unmapped |
+| R026 | quality-attribute | validated | M002/S06 | all M002 | 108 tests passing via npm run test:browser-tools |
 | R027 | core-capability | deferred | none | none | unmapped |
 | R028 | anti-feature | out-of-scope | none | none | n/a |
 
 ## Coverage Summary
 
-- Active requirements: 1
-- Validated requirements: 21
+- Active requirements: 0
+- Validated requirements: 22
 - Deferred requirements: 3
 - Out of scope: 3
-- Unmapped active requirements: 3
+- Unmapped active requirements: 0

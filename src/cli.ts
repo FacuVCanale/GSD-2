@@ -24,6 +24,7 @@ import { shouldRunOnboarding, runOnboarding } from './onboarding.js'
 interface CliFlags {
   mode?: 'text' | 'json' | 'rpc'
   print?: boolean
+  continue?: boolean
   noSession?: boolean
   model?: string
   extensions: string[]
@@ -42,6 +43,8 @@ function parseCliArgs(argv: string[]): CliFlags {
       if (m === 'text' || m === 'json' || m === 'rpc') flags.mode = m
     } else if (arg === '--print' || arg === '-p') {
       flags.print = true
+    } else if (arg === '--continue' || arg === '-c') {
+      flags.continue = true
     } else if (arg === '--no-session') {
       flags.noSession = true
     } else if (arg === '--model' && i + 1 < args.length) {
@@ -61,6 +64,7 @@ function parseCliArgs(argv: string[]): CliFlags {
       process.stdout.write('Options:\n')
       process.stdout.write('  --mode <text|json|rpc>   Output mode (default: interactive)\n')
       process.stdout.write('  --print, -p              Single-shot print mode\n')
+      process.stdout.write('  --continue, -c           Resume the most recent session\n')
       process.stdout.write('  --model <id>             Override model (e.g. claude-opus-4-6)\n')
       process.stdout.write('  --no-session             Disable session persistence\n')
       process.stdout.write('  --extension <path>       Load additional extension\n')
@@ -239,7 +243,9 @@ if (existsSync(sessionsDir)) {
   }
 }
 
-const sessionManager = SessionManager.create(cwd, projectSessionsDir)
+const sessionManager = cliFlags.continue
+  ? SessionManager.continueRecent(cwd, projectSessionsDir)
+  : SessionManager.create(cwd, projectSessionsDir)
 
 initResources(agentDir)
 const resourceLoader = buildResourceLoader(agentDir)
